@@ -90,10 +90,17 @@ struct thread {
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
+	int base_priority;
 	int priority;                       /* Priority. */
-
+	int64_t sleeptime;   /*추가*/
+	struct lock *waitingforlock;
+	struct list donation_list; /* 나에게 기부한 스레드들(우선순위 내림차순) */
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
+	struct list_elem donation_elem;              /* List element. */
+	struct list_elem elem;
+
+	    /* ready / semaphore waiters 등에 쓰는 공용 elem (필수!) */
+        /* ready_list나 lock waiters 등에 사용 */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -142,5 +149,13 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+void timer_waitlist(int64_t fin_sleep);
+void timer_awake(int ticks);
+
+
+bool compare_less(const struct list_elem * ele, const struct list_elem * e, void *aux UNUSED);
+
+
 
 #endif /* threads/thread.h */
