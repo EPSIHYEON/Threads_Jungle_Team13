@@ -425,9 +425,9 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 	ASSERT (less != NULL);
 
 	for (e = list_begin (list); e != list_end (list); e = list_next (e))
-		if (less (elem, e, aux))
+		if (less (elem, e, aux)) //elem 이 e 보다 크다면 
 			break;
-	return list_insert (e, elem);
+	return list_insert (e, elem); //e의 위치에 elem 삽입 
 }
 
 /* Iterates through LIST and removes all but the first in each

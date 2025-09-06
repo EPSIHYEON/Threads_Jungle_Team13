@@ -183,13 +183,46 @@ lock_init (struct lock *lock) {
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
 void
-lock_acquire (struct lock *lock) {
+lock_acquire (struct lock *lock) { /*추가 !!!!*/
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
+if(lock->holder != NULL && lock->holder != thread_current()){
+	thread_current()->waitingforlock = lock;
+	list_insert_ordered(lock->lock_list, &(thread_current()->elem),compare_less,NULL); //push_in_lock_list
+	push_donation_thread_and_donate(lock->holder); 
 
+
+}
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
+	thread_current ()->waitingforlock = NULL;
+
+
+}
+
+
+void
+push_donation_thread_and_donate(struct thread *t_holder){
+
+	struct list *lock_thread_donation_list = &t_holder->donation_list;
+
+	list_insert_ordered(lock_thread_donation_list, &(thread_current()->donation_elem),compare_less,NULL);
+
+	struct thread *donator = thread_current();
+	struct thread *target = t_holder;
+
+	while(target != NULL){
+		if(donator->priority > target-> priority){
+			target->priority = donator->priority;
+
+		target = donator->waitingforlock ? donator->waitingforlock->holder : NULL;
+		}else{
+			break;
+		}
+	}
+
+	
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -199,7 +232,7 @@ lock_acquire (struct lock *lock) {
    This function will not sleep, so it may be called within an
    interrupt handler. */
 bool
-lock_try_acquire (struct lock *lock) {
+lock_try_acquire (struct lock *lock) { //"화장실이 비어있나? 문만 살짝 열어봐야지. 어, 사람이 있네? 그럼 기다리지 말고 그냥 다른 일 하러 가야겠다."
 	bool success;
 
 	ASSERT (lock != NULL);

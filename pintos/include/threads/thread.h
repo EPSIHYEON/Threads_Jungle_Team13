@@ -90,7 +90,7 @@ struct thread {
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
-	int base_priority;
+	int base_priority; //기본 우선순위 
 	int priority;                       /* Priority. */
 	int64_t sleeptime;   /*추가*/
 	struct lock *waitingforlock;
