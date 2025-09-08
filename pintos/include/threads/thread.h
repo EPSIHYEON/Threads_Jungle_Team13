@@ -97,6 +97,8 @@ struct thread {
 	struct list donation_list; /* 나에게 기부한 스레드들(우선순위 내림차순) */
 	/* Shared between thread.c and synch.c. */
 	struct list_elem donation_elem;              /* List element. */
+	struct list_elem wait_elem;   
+	struct list_elem sema_elem;
 	struct list_elem elem;
 
 	    /* ready / semaphore waiters 등에 쓰는 공용 elem (필수!) */
@@ -153,9 +155,10 @@ void do_iret (struct intr_frame *tf);
 void timer_waitlist(int64_t fin_sleep);
 void timer_awake(int ticks);
 
-
+void check_and_yield_if_needed();
 bool compare_less(const struct list_elem * ele, const struct list_elem * e, void *aux UNUSED);
-
-
+bool compare_less_wait(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
+bool compare_less_sema(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
+bool compare_less_donation(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
 
 #endif /* threads/thread.h */

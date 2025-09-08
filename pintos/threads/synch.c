@@ -47,6 +47,7 @@ sema_init (struct semaphore *sema, unsigned value) {
 
 	sema->value = value;
 	list_init (&sema->waiters);
+	
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -66,7 +67,8 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		//list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &thread_current ()->sema_elem,compare_less_sema,NULL);
 		thread_block ();
 	}
 	sema->value--;
@@ -105,16 +107,29 @@ sema_try_down (struct semaphore *sema) {
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
+	struct thread *new_thread = NULL;
+
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
 	sema->value++;
+
+	if (!list_empty (&sema->waiters) && sema->value >= 0 ){
+		list_sort(&sema->waiters,compare_less_sema, NULL);
+		new_thread = list_entry(list_pop_front (&sema->waiters),
+					struct thread, sema_elem);
+
+		thread_unblock (new_thread);
+
+	}
+
 	intr_set_level (old_level);
+	
+
 }
+
+
 
 static void sema_test_helper (void *sema_);
 
@@ -171,6 +186,7 @@ lock_init (struct lock *lock) {
 	ASSERT (lock != NULL);
 
 	lock->holder = NULL;
+	//list_init(&lock->lock_list);
 	sema_init (&lock->semaphore, 1);
 }
 
@@ -189,8 +205,8 @@ lock_acquire (struct lock *lock) { /*추가 !!!!*/
 	ASSERT (!lock_held_by_current_thread (lock));
 if(lock->holder != NULL && lock->holder != thread_current()){
 	thread_current()->waitingforlock = lock;
-	list_insert_ordered(lock->lock_list, &(thread_current()->elem),compare_less,NULL); //push_in_lock_list
-	push_donation_thread_and_donate(lock->holder); 
+	//list_insert_ordered(&lock->lock_list, &(thread_current()->elem),compare_less,NULL); //push_in_lock_list
+	push_donation_thread_and_donate(lock->holder); //push_in_donation_list
 
 
 }
@@ -207,7 +223,7 @@ push_donation_thread_and_donate(struct thread *t_holder){
 
 	struct list *lock_thread_donation_list = &t_holder->donation_list;
 
-	list_insert_ordered(lock_thread_donation_list, &(thread_current()->donation_elem),compare_less,NULL);
+	list_insert_ordered(lock_thread_donation_list, &(thread_current()->donation_elem),compare_less_donation,NULL);
 
 	struct thread *donator = thread_current();
 	struct thread *target = t_holder;
@@ -216,7 +232,7 @@ push_donation_thread_and_donate(struct thread *t_holder){
 		if(donator->priority > target-> priority){
 			target->priority = donator->priority;
 
-		target = donator->waitingforlock ? donator->waitingforlock->holder : NULL;
+		target = target->waitingforlock ? target->waitingforlock->holder : NULL;
 		}else{
 			break;
 		}
@@ -255,8 +271,58 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
+	enum intr_level old_level = intr_disable();
+
+
+	struct list_elem *e = list_begin(&thread_current()->donation_list);
+
+
+	//해당 락 에 묶여있던 기부자들 청산 
+	while(e != list_end(&thread_current()->donation_list)){
+		struct thread *t = list_entry(e, struct thread, donation_elem);
+		struct list_elem *next = list_next(e);
+
+		if(t->waitingforlock == lock){
+			list_remove(e);
+		}
+
+		e= next;
+	}
+
+	//남아있는 기부자들중 가장 큰 기부 다시 받음
+
+	if(list_empty(&thread_current()->donation_list)){
+		thread_current()->priority = thread_current()->base_priority;
+	}
+	else{
+		thread_current()->priority = thread_current()->base_priority;
+		struct list_elem *e_2 = list_begin(&thread_current()->donation_list);
+
+		while(e_2 != list_end(&thread_current()->donation_list)){
+		struct thread *t_2 = list_entry(e_2, struct thread, donation_elem);
+		struct list_elem *next_2 = list_next(e_2);
+
+		if(t_2->priority > thread_current()->priority)
+			thread_current()->priority = t_2->priority;
+
+
+			e_2 = next_2;
+		}
+
+	}
+
+	check_and_yield_if_needed(); // 선점 로직 
+	
+
+	
 	lock->holder = NULL;
+
+	
 	sema_up (&lock->semaphore);
+
+	
+	intr_set_level(old_level);
+
 }
 
 /* Returns true if the current thread holds LOCK, false

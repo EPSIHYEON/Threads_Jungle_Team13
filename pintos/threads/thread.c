@@ -319,7 +319,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_insert_ordered(&ready_list, &curr->elem, compare_less, NULL);
+		list_insert_ordered(&ready_list, &(curr->elem), compare_less, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -327,40 +327,32 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-// enum intr_level old_level = intr_disable ();
-// struct thread *t = thread_current();
-// 	t->base_priority = new_priority;
+	enum intr_level old_level = intr_disable ();
+struct thread *t = thread_current();
+	t->base_priority = new_priority;
+	t->priority = new_priority;
+	// //priority 설정:
+	if(list_empty(&t->donation_list))
+		t->priority = new_priority;
+	else{
 
-// 	//priority 설정:
-// 	if(list_empty(&t->donation_list))
-// 		t->priority = new_priority;
-// 	else{
-// 		struct thread *d_top = list_entry(list_front(&t->donation_list), struct thread, donation_elem);
-// 		t->priority = new_priority > d_top->priority ? new_priority : d_top->priority;
-// 	}
-
-// 	if(!list_empty(&ready_list)){
-// 			struct thread *r_top = list_entry(list_front(&ready_list), struct thread, elem);
-
-// 			if(r_top->priority > t->priority){
-// 				intr_yield_on_return();
-// 			}
-// 	}
+		struct thread *d_top = list_entry(list_front(&t->donation_list), struct thread, donation_elem);
+		t->priority = new_priority > d_top->priority ? new_priority : d_top->priority;
+	}
 
 
-//  intr_set_level (old_level);
 
-   enum intr_level old_level = intr_disable ();
-	thread_current ()->priority = new_priority;
+	//아래는 선점 처리 구간 
 
 	if(!list_empty(&ready_list)){
-    struct thread *r_top = list_entry(list_front(&ready_list), struct thread, elem);
-    if(r_top->priority > thread_current ()->priority){
-        thread_yield();
-    }
-}
+			struct thread *r_top = list_entry(list_front(&ready_list), struct thread, elem);
 
-intr_set_level (old_level);
+			if(r_top->priority > t->priority){
+				thread_yield();
+			}
+	}
+	intr_set_level (old_level);
+ 
 
 }
 
@@ -453,11 +445,14 @@ init_thread (struct thread *t, const char *name, int priority) {
 	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
 	ASSERT (name != NULL);
 
-	memset (t, 0, sizeof *t);
+	memset (t, 0, sizeof *t); //모든 내용 0 으로 초기화 
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->base_priority = priority;      // base_priority 초기화
+    t->waitingforlock = NULL;         // waitingforlock 초기화
+    list_init(&(t->donation_list));     // donation_list 초기화
 	t->magic = THREAD_MAGIC;
 }
 
@@ -646,7 +641,7 @@ void timer_awake(int ticks)
 	while (e != list_end(&wait_list))
 	{
 
-		struct thread *t = list_entry(e, struct thread, elem);
+		struct thread *t = list_entry(e, struct thread, wait_elem);
 		struct list_elem *next = list_next(e); // remove 전에 미리 저장
 		if (ticks >= t->sleeptime)
 		{
@@ -663,10 +658,21 @@ void timer_waitlist(int64_t fin_sleep)
 	enum intr_level old_level = intr_disable(); // oldlevel -> setlevel disable 시키고 원래 상태로 되돌려놓는 착한 코드
 	struct thread *t = thread_current();		// 현재 쓰레드
 	t->sleeptime = fin_sleep;
-	list_insert_ordered(&wait_list, &t->elem, compare_less,NULL);
+	list_insert_ordered(&wait_list, &t->wait_elem, compare_less_wait,NULL);
 	thread_block();
 	intr_set_level(old_level);
 }
+
+void
+check_and_yield_if_needed() {
+
+    if (!list_empty(&ready_list) &&
+        list_entry(list_front(&ready_list), struct thread, elem)->priority > thread_current()->priority) {
+        thread_yield();
+    }
+}
+
+
 
 bool compare_less(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
 {
@@ -676,3 +682,32 @@ bool compare_less(const struct list_elem *ele, const struct list_elem *e, void *
 
 	return t_a->priority > t_b->priority; // 1 and 0
 }
+
+
+bool compare_less_wait(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
+{
+	struct thread *t_a = list_entry(ele, struct thread, wait_elem);
+
+	struct thread *t_b = list_entry(e, struct thread, wait_elem);
+
+	return t_a->priority > t_b->priority; // 1 and 0
+}
+
+bool compare_less_sema(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
+{
+	struct thread *t_a = list_entry(ele, struct thread, sema_elem);
+
+	struct thread *t_b = list_entry(e, struct thread, sema_elem);
+
+	return t_a->priority > t_b->priority; // 1 and 0
+}
+
+bool compare_less_donation(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
+{
+	struct thread *t_a = list_entry(ele, struct thread, donation_elem);
+
+	struct thread *t_b = list_entry(e, struct thread, donation_elem);
+
+	return t_a->priority > t_b->priority; // 1 and 0
+}
+
