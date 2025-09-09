@@ -115,7 +115,7 @@ sema_up (struct semaphore *sema) {
 	old_level = intr_disable ();
 	sema->value++;
 
-	if (!list_empty (&sema->waiters) && sema->value >= 0 ){
+	if (!list_empty (&sema->waiters)){
 		list_sort(&sema->waiters,compare_less_sema, NULL);
 		new_thread = list_entry(list_pop_front (&sema->waiters),
 					struct thread, sema_elem);
@@ -126,7 +126,6 @@ sema_up (struct semaphore *sema) {
 
 	intr_set_level (old_level);
 	
-
 }
 
 
@@ -232,7 +231,7 @@ push_donation_thread_and_donate(struct thread *t_holder){
 	while(target != NULL){
 		if(donator->priority > target-> priority){
 			target->priority = donator->priority;
-
+		
 		target = target->waitingforlock ? target->waitingforlock->holder : NULL;
 		}else{
 			break;
@@ -370,7 +369,7 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (cond != NULL);
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
-	ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (lock_held_by_current_thread (lock)); //lock을 이미 current thread 가 들고 있음 
 
 	sema_init (&waiter.semaphore, 0);
 	//list_push_back (&cond->waiters, &waiter.elem);
