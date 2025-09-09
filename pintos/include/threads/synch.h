@@ -40,6 +40,8 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+bool compare_less_func(const struct list_elem *ele, const struct list_elem *e, void *aux );
+
 /* Optimization barrier.
  *
  * The compiler will not reorder operations across an
@@ -48,3 +50,4 @@ void cond_broadcast (struct condition *, struct lock *);
 #define barrier() asm volatile ("" : : : "memory")
 
 #endif /* threads/synch.h */
+

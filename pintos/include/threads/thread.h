@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -157,7 +158,6 @@ void timer_awake(int ticks);
 
 void check_and_yield_if_needed();
 bool compare_less(const struct list_elem * ele, const struct list_elem * e, void *aux UNUSED);
-bool compare_less_wait(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
 bool compare_less_sema(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
 bool compare_less_donation(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);
 

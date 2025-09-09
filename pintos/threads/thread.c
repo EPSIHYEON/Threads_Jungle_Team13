@@ -13,6 +13,9 @@
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+
+
+
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -658,7 +661,7 @@ void timer_waitlist(int64_t fin_sleep)
 	enum intr_level old_level = intr_disable(); // oldlevel -> setlevel disable 시키고 원래 상태로 되돌려놓는 착한 코드
 	struct thread *t = thread_current();		// 현재 쓰레드
 	t->sleeptime = fin_sleep;
-	list_insert_ordered(&wait_list, &t->wait_elem, compare_less_wait,NULL);
+	list_push_back(&wait_list, &thread_current()->wait_elem);
 	thread_block();
 	intr_set_level(old_level);
 }
@@ -683,16 +686,6 @@ bool compare_less(const struct list_elem *ele, const struct list_elem *e, void *
 	return t_a->priority > t_b->priority; // 1 and 0
 }
 
-
-bool compare_less_wait(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
-{
-	struct thread *t_a = list_entry(ele, struct thread, wait_elem);
-
-	struct thread *t_b = list_entry(e, struct thread, wait_elem);
-
-	return t_a->priority > t_b->priority; // 1 and 0
-}
-
 bool compare_less_sema(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
 {
 	struct thread *t_a = list_entry(ele, struct thread, sema_elem);
@@ -710,4 +703,3 @@ bool compare_less_donation(const struct list_elem *ele, const struct list_elem *
 
 	return t_a->priority > t_b->priority; // 1 and 0
 }
-

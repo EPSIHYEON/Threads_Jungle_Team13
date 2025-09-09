@@ -207,6 +207,7 @@ if(lock->holder != NULL && lock->holder != thread_current()){
 	thread_current()->waitingforlock = lock;
 	//list_insert_ordered(&lock->lock_list, &(thread_current()->elem),compare_less,NULL); //push_in_lock_list
 	push_donation_thread_and_donate(lock->holder); //push_in_donation_list
+	
 
 
 }
@@ -296,30 +297,20 @@ lock_release (struct lock *lock) {
 	}
 	else{
 		thread_current()->priority = thread_current()->base_priority;
-		struct list_elem *e_2 = list_begin(&thread_current()->donation_list);
 
-		while(e_2 != list_end(&thread_current()->donation_list)){
-		struct thread *t_2 = list_entry(e_2, struct thread, donation_elem);
-		struct list_elem *next_2 = list_next(e_2);
+		struct thread *t_2 = list_entry(list_front(&thread_current()->donation_list), struct thread, donation_elem); //제일 앞이 제일 큰 거니까 
+
 
 		if(t_2->priority > thread_current()->priority)
 			thread_current()->priority = t_2->priority;
-
-
-			e_2 = next_2;
 		}
 
-	}
-
-	check_and_yield_if_needed(); // 선점 로직 
 	
 
 	
 	lock->holder = NULL;
 
-	
 	sema_up (&lock->semaphore);
-
 	
 	intr_set_level(old_level);
 
@@ -339,6 +330,7 @@ lock_held_by_current_thread (const struct lock *lock) {
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */
 	struct semaphore semaphore;         /* This semaphore. */
+	int priority;
 };
 
 /* Initializes condition variable COND.  A condition variable
@@ -381,7 +373,9 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	sema_init (&waiter.semaphore, 0);
-	list_push_back (&cond->waiters, &waiter.elem);
+	//list_push_back (&cond->waiters, &waiter.elem);
+	waiter.priority = thread_current()->priority;
+	list_insert_ordered(&cond->waiters, &waiter.elem, compare_less_func, NULL);
 	lock_release (lock);
 	sema_down (&waiter.semaphore);
 	lock_acquire (lock);
@@ -419,4 +413,17 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
+}
+
+
+
+bool compare_less_func(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED)
+{
+	struct semaphore_elem *sema_a = list_entry(ele, struct semaphore_elem, elem);
+
+	struct semaphore_elem *sema_b = list_entry(e, struct semaphore_elem, elem);
+
+
+	return sema_a->priority > sema_b->priority;
+
 }
