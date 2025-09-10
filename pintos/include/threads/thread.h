@@ -156,6 +156,9 @@ void do_iret (struct intr_frame *tf);
 void timer_waitlist(int64_t fin_sleep);
 void timer_awake(int ticks);
 
+
+int get_the_biggest_num(struct thread *current_thread);
+
 void check_and_yield_if_needed();
 bool compare_less(const struct list_elem * ele, const struct list_elem * e, void *aux UNUSED);
 bool compare_less_sema(const struct list_elem *ele, const struct list_elem *e, void *aux UNUSED);

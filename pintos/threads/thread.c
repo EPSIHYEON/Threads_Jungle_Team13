@@ -331,20 +331,23 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	enum intr_level old_level = intr_disable ();
+enum intr_level old_level = intr_disable ();
 struct thread *t = thread_current();
 	t->base_priority = new_priority;
 	t->priority = new_priority;
 	// //priority 설정:
-	if(list_empty(&t->donation_list))
-		t->priority = new_priority;
-	else{
+	t->priority = get_the_biggest_num(t);
 
-		struct thread *d_top = list_entry(list_front(&t->donation_list), struct thread, donation_elem);
-		t->priority = new_priority > d_top->priority ? new_priority : d_top->priority;
+	//donate 연쇄 우선순위 변경 
+	if(t->waitingforlock){
+		struct thread *target = t->waitingforlock->holder;
+		while(target != NULL){
+
+		target->priority = get_the_biggest_num(target);
+	
+		target = target->waitingforlock ? target->waitingforlock->holder : NULL;
+		}
 	}
-
-
 
 	//아래는 선점 처리 구간 
 
@@ -359,6 +362,35 @@ struct thread *t = thread_current();
  
 
 }
+
+int get_the_biggest_num(struct thread *current_thread){
+
+	if(list_empty(&current_thread->donation_list)){
+		return current_thread->base_priority ;
+	}
+
+	struct list *donate_list = &current_thread->donation_list;
+	struct list_elem *e = list_begin(donate_list);
+	int biggest_priority =  current_thread->base_priority;
+
+
+	while(e != list_end(donate_list)){
+
+	struct thread *t = list_entry(e, struct thread, donation_elem);
+	struct list_elem *next = list_next(e);
+
+	if(t->priority > biggest_priority){
+		biggest_priority = t->priority;
+	}
+
+	e = next;
+
+	}
+	//donationlist 다 돌고 base_prioirty 가 제일 높으면 그거 반환 
+	return biggest_priority;
+
+}
+
 
 /* Returns the current thread's priority. */
 int

@@ -40,6 +40,9 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+void
+push_donation_thread_and_donate(struct thread *t_holder);
+
 bool compare_less_func(const struct list_elem *ele, const struct list_elem *e, void *aux );
 
 /* Optimization barrier.
